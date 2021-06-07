@@ -1,5 +1,5 @@
-import { calculateCycleInfo } from './../utils';
-import { useEffect, useState } from "react";
+import { calculateCycleInfo } from "./../utils";
+import { useEffect, useMemo, useState } from "react";
 import { useDAO } from "./useDAO";
 import { CycleInfo } from "..";
 
@@ -9,11 +9,16 @@ export const useCycleInfo = (daoAddress?: string) => {
 
   useEffect(() => {
     if (dao) {
+      const result = calculateCycleInfo(
+        dao.storage.start_time,
+        dao.storage.votingPeriod
+      );
+      setTimeLeft(result);
+
       const interval = setInterval(() => {
         const result = calculateCycleInfo(
-          dao.storage.lastPeriodChange.timestamp,
-          dao.storage.votingPeriod,
-          dao.storage.lastPeriodChange.periodNumber
+          dao.storage.start_time,
+          dao.storage.votingPeriod
         );
         setTimeLeft(result);
       }, 1000);
@@ -22,4 +27,16 @@ export const useCycleInfo = (daoAddress?: string) => {
   }, [dao]);
 
   return timeLeft;
+};
+
+export const useIsProposalButtonDisabled = (daoAddress?: string) => {
+  const cycleInfo = useCycleInfo(daoAddress);
+
+  return useMemo(() => {
+    if (cycleInfo && cycleInfo.type === "voting") {
+      return true;
+    }
+
+    return false;
+  }, [cycleInfo]);
 };

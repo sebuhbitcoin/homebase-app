@@ -1,10 +1,11 @@
 import {
   Grid,
   styled,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
-  withTheme
+  withTheme,
 } from "@material-ui/core";
 import React from "react";
 import { useParams } from "react-router";
@@ -12,88 +13,116 @@ import { useParams } from "react-router";
 import { VoteDialog } from "modules/explorer/components/VoteDialog";
 import { useDAO } from "services/contracts/baseDAO/hooks/useDAO";
 import { useProposal } from "services/contracts/baseDAO/hooks/useProposal";
-import { RegistryProposalWithStatus, TransferProposalWithStatus } from "services/bakingBad/proposals/types";
+import {
+  RegistryProposalWithStatus,
+  TreasuryProposalWithStatus,
+} from "services/bakingBad/proposals/types";
 import { StatusBadge } from "./StatusBadge";
 import { ProposalStatusHistory } from "./ProposalStatusHistory";
 import { RectangleContainer } from "./styled/RectangleHeader";
 import { VotersProgress } from "./VotersProgress";
-import { TransferDetail } from "../Treasury/components/TransferDetail";
-import { RegistryUpdateDetail } from "../Registry/components/RegistryUpdateDetail";
+import { TreasuryProposalDetail } from "../Treasury/components/TreasuryProposalDetail";
+import { RegistryProposalDetail } from "../Registry/components/RegistryProposalDetail";
+import { useDropProposal } from "services/contracts/baseDAO/hooks/useDropProposal";
+import { ViewButton } from "./ViewButton";
+import { BaseDAO } from "services/contracts/baseDAO";
+import {
+  connectIfNotConnected,
+  toShortAddress,
+} from "services/contracts/utils";
+import { useCanDropProposal } from "../hooks/useCanDropProposal";
+import { useCallback } from "react";
+import { useTezos } from "services/beacon/hooks/useTezos";
+import { InfoIcon } from "./styled/InfoIcon";
 
-const StyledContainer = styled(withTheme(Grid))(props => ({
+const StyledContainer = styled(withTheme(Grid))((props) => ({
   background: props.theme.palette.primary.main,
-  boxSizing: "border-box"
+  boxSizing: "border-box",
 }));
 
 const StatsContainer = styled(Grid)(({ theme }) => ({
   minHeight: 175,
-  borderBottom: `2px solid ${theme.palette.primary.light}`
+  borderBottom: `2px solid ${theme.palette.primary.light}`,
 }));
 
 const TokensLocked = styled(Grid)({
-  padding: "35px 8%"
+  padding: "35px 8%",
 });
 
 const Subtitle = styled(Typography)({
-  marginTop: 12
+  marginTop: 12,
 });
 
 const ButtonsContainer = styled(Grid)(({ theme }) => ({
   [theme.breakpoints.down("sm")]: {
-    marginTop: 15
-  }
+    marginTop: 15,
+  },
 }));
 
 const Cycle = styled(Typography)({
-  opacity: 0.8
+  opacity: 0.8,
 });
 
 const DetailsContainer = styled(Grid)(({ theme }) => ({
   paddingBottom: 0,
   padding: "40px 8%",
   [theme.breakpoints.down("sm")]: {
-    padding: "40px 0"
-  }
+    padding: "40px 0",
+  },
 }));
 
-const TitleText = styled(Typography)({
-  fontWeight: "bold"
-});
-
-const DescriptionText = styled(Typography)({
-  paddingTop: 28,
-  paddingBottom: 10
-});
+// const DescriptionText = styled(Typography)({
+//   paddingTop: 28,
+//   paddingBottom: 10,
+// });
 
 const RectangleHeader = styled(Grid)(({ theme }) => ({
   borderBottom: `2px solid ${theme.palette.primary.light}`,
-  padding: "20px 8%"
+  padding: "20px 8%",
 }));
 
 const DetailsHeader = styled(RectangleHeader)(({ theme }) => ({
   borderTop: `2px solid ${theme.palette.primary.light}`,
-  margin: "20px 0 35px 0"
+  margin: "20px 0 35px 0",
 }));
 
 const ProposalStatusBadge = styled(StatusBadge)(({ theme }) => ({
   marginLeft: 15,
   [theme.breakpoints.down("sm")]: {
-    marginTop: 15
-  }
+    marginTop: 15,
+  },
 }));
+
+const DropButton = styled(ViewButton)({
+  marginTop: "12px",
+});
 
 export const ProposalDetails: React.FC = () => {
   const { proposalId, id: daoId } = useParams<{
     proposalId: string;
     id: string;
   }>();
+  const { tezos, connect } = useTezos();
   const theme = useTheme();
   const { data: proposalData } = useProposal(daoId, proposalId);
-  const proposal = proposalData as (TransferProposalWithStatus | RegistryProposalWithStatus | undefined);
+  const proposal = proposalData as
+    | TreasuryProposalWithStatus
+    | RegistryProposalWithStatus
+    | undefined;
   const { data: dao } = useDAO(daoId);
   const isMobileSmall = useMediaQuery(theme.breakpoints.down("sm"));
+  const { mutate: dropProposal } = useDropProposal();
+  const canDropProposal = useCanDropProposal(dao, proposal);
 
-  const proposalCycle = proposal ? proposal.cycle : "-";
+  const onDropProposal = useCallback(async () => {
+    await connectIfNotConnected(tezos, connect);
+    await dropProposal({
+      dao: dao as BaseDAO,
+      proposalId,
+    });
+  }, [connect, dao, dropProposal, proposalId, tezos]);
+
+  const proposalCycle = proposal ? proposal.period : "-";
   const daoName = dao ? dao.metadata.unfrozenToken.name : "";
 
   return (
@@ -125,7 +154,7 @@ export const ProposalDetails: React.FC = () => {
                     color="textSecondary"
                     align={isMobileSmall ? "center" : "left"}
                   >
-                    Proposal Title
+                    Proposal {toShortAddress(proposal?.id || "")}
                   </Subtitle>
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -138,6 +167,23 @@ export const ProposalDetails: React.FC = () => {
                   >
                     <VoteDialog />
                   </ButtonsContainer>
+                </Grid>
+
+                <Grid container>
+                  <Grid item>
+                    <DropButton
+                      variant="outlined"
+                      onClick={onDropProposal}
+                      disabled={!canDropProposal}
+                    >
+                      DROP PROPOSAL
+                    </DropButton>
+                  </Grid>
+                  <Grid item>
+                    <Tooltip placement="bottom" title="Guardian and proposer may drop proposal at anytime. Anyone may drop proposal if proposal expired">
+                      <InfoIcon color="secondary" />
+                    </Tooltip>
+                  </Grid>
                 </Grid>
               </StyledContainer>
             </Grid>
@@ -162,29 +208,39 @@ export const ProposalDetails: React.FC = () => {
           <Grid item xs={12} md={7} style={{ paddingBottom: 40 }}>
             <Grid container direction="row" alignItems="center">
               <Grid item xs={12}>
-                <TitleText
+                <Typography
                   variant="subtitle1"
                   color="textSecondary"
                   align={isMobileSmall ? "center" : "left"}
                 >
-                  Proposal
-                </TitleText>
-                <DescriptionText
+                  PROPOSAL DETAILS
+                </Typography>
+                {/* <DescriptionText
                   variant="subtitle1"
                   color="textSecondary"
                   align={isMobileSmall ? "center" : "left"}
                 >
                   Proposal Description
-                </DescriptionText>
+                </DescriptionText> */}
               </Grid>
-              {proposal? proposal.type === "transfer"? <TransferDetail proposal={proposal as TransferProposalWithStatus}/>: <RegistryUpdateDetail proposal={proposal as RegistryProposalWithStatus} />: null}
+              {proposal ? (
+                proposal.type === "treasury" ? (
+                  <TreasuryProposalDetail
+                    proposal={proposal as TreasuryProposalWithStatus}
+                  />
+                ) : (
+                  <RegistryProposalDetail
+                    proposal={proposal as RegistryProposalWithStatus}
+                  />
+                )
+              ) : null}
             </Grid>
           </Grid>
           {isMobileSmall && (
             <DetailsHeader xs={12} alignItems="center" container>
-              <TitleText variant="subtitle1" color="textSecondary">
+              <Typography variant="subtitle1" color="textSecondary">
                 DETAILS
-              </TitleText>
+              </Typography>
             </DetailsHeader>
           )}
           <ProposalStatusHistory />

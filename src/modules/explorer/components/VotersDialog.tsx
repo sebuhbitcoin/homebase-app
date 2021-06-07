@@ -22,6 +22,7 @@ import { useVotesStats } from "../hooks/useVotesStats";
 import { VotersProgress } from "./VotersProgress";
 import { AppTabBar } from "./AppTabBar";
 import { TabPanel } from "./TabPanel";
+import { useQuorumThreshold } from "../hooks/useQuorumThreshold";
 
 interface UpVotesDialogData {
   daoAddress: string;
@@ -132,9 +133,10 @@ export const UpVotesDialog: React.FC<UpVotesDialogData> = ({
   const { data: votesData, isLoading } = useVotes(proposalAddress, daoAddress);
   const [selectedTab, setSelectedTab] = React.useState(0);
   const style = styles();
+  const quorumThreshold = useQuorumThreshold(dao)
 
   const { votesSum } = useVotesStats({
-    quorumTreshold: dao?.storage.quorumTreshold || 0,
+    quorumThreshold,
     upVotes: proposal?.upVotes || 0,
     downVotes: proposal?.downVotes || 0
   });

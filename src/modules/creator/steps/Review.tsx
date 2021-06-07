@@ -39,13 +39,13 @@ export const Review: React.FC = () => {
         frozenToken,
         unfrozenToken,
         description: info.orgSettings.description,
-        authors: [info.memberSettings.administrator],
+        authors: [info.orgSettings.administrator],
         template: state.data.template,
       },
     }),
     [
       frozenToken,
-      info.memberSettings.administrator,
+      info.orgSettings.administrator,
       info.orgSettings.description,
       state.data.template,
       unfrozenToken,
@@ -58,8 +58,6 @@ export const Review: React.FC = () => {
     activeState,
   } = useOriginate(state.data.template);
   const history = useHistory();
-
-  console.log(validDAOData, info, metadataCarrierParams)
 
   // TODO: Fix infinite calling here
   useEffect(() => {

@@ -50,7 +50,7 @@ export const useVote = () => {
         console.log(e);
         closeVoteNotification(voteNotification);
         openNotification({
-          message: "And error has happened with vote transaction!",
+          message: "An error has happened with vote transaction!",
           variant: "error",
           autoHideDuration: 10000,
         });
@@ -59,8 +59,8 @@ export const useVote = () => {
     },
     {
       onSuccess: () => {
-        queryClient.invalidateQueries("votes");
-        queryClient.invalidateQueries("proposals");
+        queryClient.resetQueries("votes");
+        queryClient.resetQueries("proposals");
       },
     }
   );

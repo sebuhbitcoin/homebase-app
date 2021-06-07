@@ -1,4 +1,3 @@
-import { TransactionWalletOperation } from "@taquito/taquito";
 import { useNotification } from "modules/common/hooks/useNotification";
 import { useMutation, useQueryClient } from "react-query";
 import { useTezos } from "services/beacon/hooks/useTezos";
@@ -18,13 +17,13 @@ export const useFreeze = () => {
   const { saveDaoId } = useVisitedDAO();
   const { network } = useTezos()
 
-  return useMutation<TransactionWalletOperation | Error, Error, Params>(
+  return useMutation<any | Error, Error, Params>(
     async (params) => {
       const {
         key: freezeNotification,
         closeSnackbar: closeFreezeNotification,
       } = openNotification({
-        message: "Freeze is being processed...",
+        message: "Stake is being processed...",
         persist: true,
         variant: "info",
       });
@@ -35,7 +34,7 @@ export const useFreeze = () => {
 
         closeFreezeNotification(freezeNotification);
         openNotification({
-          message: "Freeze transaction confirmed!",
+          message: "Stake transaction confirmed!",
           autoHideDuration: 10000,
           variant: "success",
           detailsLink: `https://${network}.tzkt.io/` + data.opHash,
@@ -48,7 +47,7 @@ export const useFreeze = () => {
         console.log(e);
         closeFreezeNotification(freezeNotification);
         openNotification({
-          message: "And error has happened with freeze transaction!",
+          message: "An error has happened with stake transaction!",
           variant: "error",
           autoHideDuration: 10000,
         });
@@ -57,8 +56,8 @@ export const useFreeze = () => {
     },
     {
       onSuccess: () => {
-        queryClient.invalidateQueries("ledger");
-        queryClient.invalidateQueries("dao");
+        queryClient.resetQueries("ledger");
+        queryClient.resetQueries("dao");
     },
     }
   );

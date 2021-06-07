@@ -1,3 +1,4 @@
+import { Network } from "services/beacon/context";
 import { OriginateParams } from "../types";
 import { DAOTemplate } from "../../../../modules/creator/state/types";
 import { useState } from "react";
@@ -12,6 +13,8 @@ import { deployMetadataCarrier } from "services/contracts/metadataCarrier/deploy
 import { addNewContractToIPFS } from "services/pinata";
 import { useTezos } from "services/beacon/hooks/useTezos";
 import { BaseDAO } from "..";
+import { connectIfNotConnected } from "services/contracts/utils";
+import { getMetadataFromAPI } from "services/bakingBad/metadata";
 
 const INITIAL_STATES = [
   {
@@ -27,6 +30,32 @@ const INITIAL_STATES = [
     completedText: "",
   },
 ];
+
+const waitForMetadata = async (contractAddress: string, network: Network) => {
+  return new Promise(async (resolve, reject) => {
+    let tries = 0;
+
+    const tryMetadata = async () => {
+      try {
+        await getMetadataFromAPI(contractAddress, network);
+        resolve(true);
+      } catch (e) {
+        if (tries > 12) {
+          console.log(`Metadata indexation timed out: ${e}`);
+          reject(false);
+        }
+
+        console.log(`Verifying metadata indexation, trial #${tries + 1}`);
+
+        tries++;
+
+        setTimeout(async () => await tryMetadata(), 10000);
+      }
+    };
+
+    await tryMetadata();
+  });
+};
 
 export const useOriginate = (template: DAOTemplate) => {
   const queryClient = useQueryClient();
@@ -50,6 +79,8 @@ export const useOriginate = (template: DAOTemplate) => {
 
       setActiveState(0);
       setStates(updatedStates);
+
+      await connectIfNotConnected(tezos, connect);
 
       const metadata = await deployMetadataCarrier({
         ...metadataParams,
@@ -80,7 +111,7 @@ export const useOriginate = (template: DAOTemplate) => {
         tezos,
         metadata,
         params,
-        network
+        network,
       });
 
       if (!contract) {
@@ -93,7 +124,7 @@ export const useOriginate = (template: DAOTemplate) => {
       };
 
       updatedStates[2] = {
-        activeText: `Saving ${template} DAO address in IPFS`,
+        activeText: `Waiting for metadata to be indexed`,
         completedText: "",
       };
 
@@ -102,9 +133,13 @@ export const useOriginate = (template: DAOTemplate) => {
 
       await addNewContractToIPFS(contract.address);
 
+      const indexed = await waitForMetadata(contract.address, network);
+
       updatedStates[2] = {
         ...updatedStates[2],
-        completedText: `Deployed ${metadataParams.metadata.unfrozenToken.name} successfully`,
+        completedText: indexed
+          ? `Deployed ${metadataParams.metadata.unfrozenToken.name} successfully`
+          : `Deployed ${metadataParams.metadata.unfrozenToken.name} successfully, but metadata has not been indexed yet. This usually takes a few minutes, your DAO page may not be available yet.`,
       };
 
       setActiveState(3);
@@ -114,7 +149,7 @@ export const useOriginate = (template: DAOTemplate) => {
     },
     {
       onSuccess: () => {
-        queryClient.invalidateQueries("daos");
+        queryClient.resetQueries("daos");
       },
     }
   );

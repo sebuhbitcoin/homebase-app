@@ -1,11 +1,10 @@
-import { MichelsonMap, TezosToolkit } from "@taquito/taquito";
+import { TezosToolkit } from "@taquito/taquito";
 import { tzip16 } from "@taquito/tzip16";
 import dayjs from "dayjs";
 import { CycleType } from ".";
 import {
   BaseStorageParams,
   MigrationParams,
-  TokenHolder,
 } from "./types";
 
 const SECONDS_IN_MINUTE = 60;
@@ -15,32 +14,14 @@ const SECONDS_IN_DAY = 60 * 60 * 24;
 export const fromStateToBaseStorage = (
   info: MigrationParams
 ): BaseStorageParams => {
-  const membersTokenAllocation = info.memberSettings.tokenHolders.map(
-    (holder: TokenHolder) => ({
-      address: holder.address,
-      amount: holder.balance.toString(),
-      tokenId: "0",
-    })
-  );
-
-  const totalUnfrozenSupply = info.memberSettings.tokenHolders.reduce(
-    (prev, holder) => {
-      return prev + (holder.balance || 0);
-    },
-    0
-  );
-
-  const totalSupply = new MichelsonMap();
-  totalSupply.set(0, totalUnfrozenSupply);
-  totalSupply.set(1, 0);
 
   const storageData = {
-    membersTokenAllocation,
-    adminAddress: info.memberSettings.administrator || "",
+    adminAddress: info.orgSettings.administrator || "",
     governanceToken: {
       address: info.orgSettings.governanceToken.address,
       tokenId: info.orgSettings.governanceToken.tokenId
     },
+    guardian: info.orgSettings.guardian,
     extra: {
       frozenScaleValue: info.votingSettings.proposeStakePercentage,
       frozenExtraValue: info.votingSettings.proposeStakeRequired,
@@ -49,14 +30,25 @@ export const fromStateToBaseStorage = (
 
       minXtzAmount: info.votingSettings.minXtzAmount,
       maxXtzAmount: info.votingSettings.maxXtzAmount || 0,
-      maxProposalSize: info.votingSettings.maxProposalSize,
     },
-    quorumTreshold: info.votingSettings.quorumTreshold,
+    quorumThreshold: info.quorumSettings.quorumThreshold,
     votingPeriod:
       (info.votingSettings.votingHours || 0) * SECONDS_IN_HOUR +
       (info.votingSettings.votingDays || 0) * SECONDS_IN_DAY +
       (info.votingSettings.votingMinutes || 0) * SECONDS_IN_MINUTE,
-    totalSupply,
+    minQuorumAmount: info.quorumSettings.minQuorumAmount,
+    maxQuorumAmount: info.quorumSettings.maxQuorumAmount,
+    quorumChange: info.quorumSettings.quorumChange,
+    quorumMaxChange: info.quorumSettings.quorumMaxChange,
+    
+    proposalFlushPeriod: 
+      (info.votingSettings.proposalFlushHours || 0) * SECONDS_IN_HOUR +
+      (info.votingSettings.proposalFlushDays || 0) * SECONDS_IN_DAY +
+      (info.votingSettings.proposalFlushMinutes || 0) * SECONDS_IN_MINUTE,
+    proposalExpiryPeriod: 
+      (info.votingSettings.proposalExpiryHours || 0) * SECONDS_IN_HOUR +
+      (info.votingSettings.proposalExpiryDays || 0) * SECONDS_IN_DAY +
+      (info.votingSettings.proposalExpiryMinutes || 0) * SECONDS_IN_MINUTE,
   };
 
   return storageData;
@@ -69,16 +61,16 @@ export const getContract = async (
   return await tezos.wallet.at(contractAddress, tzip16);
 };
 
-export const calculateCycleInfo = (originationTime: string, votingPeriod: number, lastPeriodNumber: number) => {
+export const calculateCycleInfo = (originationTime: string, votingPeriod: number) => {
   const current = dayjs().unix() - dayjs(originationTime).unix();
   const periodLeftPercentage = (current / votingPeriod) % 1;
   const timeLeftPercentage = votingPeriod * periodLeftPercentage;
   const time = votingPeriod - Number(timeLeftPercentage.toFixed());
-  const currentPeriodNumber = Math.floor(current / votingPeriod) + lastPeriodNumber
+  const currentPeriodNumber = Math.floor(current / votingPeriod)
 
   return {
     time: Number(time),
     current: currentPeriodNumber,
-    type: currentPeriodNumber % 2 === 0? "voting": "proposing" as CycleType
+    type: currentPeriodNumber % 2 === 0? "voting" : "proposing" as CycleType
   };
 }

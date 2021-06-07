@@ -16,6 +16,7 @@ export const getStorage = async (
   }
 
   const result = await response.json();
+  const storage = storageDTOToStorage(result[0] as StorageDTO);
 
-  return storageDTOToStorage(result[0] as StorageDTO);
+  return storage;
 };

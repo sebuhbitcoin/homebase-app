@@ -74,6 +74,13 @@ export const theme = createMuiTheme({
         maxWidth: "100%",
       },
     },
+    MuiTooltip: {
+      tooltip: {
+        backgroundColor: "#4BCF93",
+        fontSize: 14,
+        padding: "10px 15px"
+      },
+    },
     MuiStepLabel: {
       label: {
         color: "#fff",
@@ -194,6 +201,8 @@ export const theme = createMuiTheme({
     MuiDialog: {
       paper: {
         background: "#1C1F23",
+        width: 570,
+        maxWidth: "100%",
       },
       root: {
         minHeight: 600,

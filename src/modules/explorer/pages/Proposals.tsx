@@ -6,15 +6,13 @@ import {
   useMediaQuery,
   useTheme,
 } from "@material-ui/core";
-import React, { useCallback, useContext, useMemo } from "react";
+import React, { useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useDAO } from "services/contracts/baseDAO/hooks/useDAO";
 import { useProposals } from "services/contracts/baseDAO/hooks/useProposals";
 import { useFlush } from "services/contracts/baseDAO/hooks/useFlush";
-import { ActionTypes, ModalsContext } from "../ModalsContext";
 import { connectIfNotConnected } from "services/contracts/utils";
 import { useTezos } from "services/beacon/hooks/useTezos";
-import { Info } from "@material-ui/icons";
 import { DAOStatsRow } from "../components/DAOStatsRow";
 import { RectangleContainer } from "../components/styled/RectangleHeader";
 import { PrimaryButton } from "../components/styled/PrimaryButton";
@@ -23,14 +21,11 @@ import { ProposalStatus } from "services/bakingBad/proposals/types";
 import { ViewButton } from "../components/ViewButton";
 import { AppTabBar } from "../components/AppTabBar";
 import { TabPanel } from "../components/TabPanel";
-import { useCycleInfo } from "services/contracts/baseDAO/hooks/useCycleInfo";
-
-const InfoIconInput = styled(Info)({
-  cursor: "default",
-  top: 0,
-  fontSize: 20,
-  marginLeft: 6,
-});
+import { useIsProposalButtonDisabled } from "services/contracts/baseDAO/hooks/useCycleInfo";
+import { RegistryProposalFormContainer } from "../components/ProposalForm/registryProposalForm";
+import { useState } from "react";
+import { TreasuryProposalFormContainer } from "../components/ProposalForm/treasuryProposalForm";
+import { InfoIcon } from "../components/styled/InfoIcon";
 
 const ButtonsContainer = styled(Grid)(({ theme }) => ({
   boxSizing: "border-box",
@@ -42,7 +37,6 @@ const ButtonsContainer = styled(Grid)(({ theme }) => ({
 export const Proposals: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { data: dao } = useDAO(id);
-  const cycleInfo = useCycleInfo(id)
   const { data } = useDAO(id);
   const { mutate } = useFlush();
   const theme = useTheme();
@@ -50,33 +44,10 @@ export const Proposals: React.FC = () => {
   const [selectedTab, setSelectedTab] = React.useState(0);
   const { tezos, connect } = useTezos();
   const name = dao && dao.metadata.unfrozenToken.name;
+  const shouldDisable = useIsProposalButtonDisabled(id);
+  const [open, setOpen] = useState(false);
 
   const { data: proposalsData } = useProposals(dao && dao.address);
-
-  const { dispatch } = useContext(ModalsContext);
-
-  const onNewProposal = useCallback(() => {
-    if (dao) {
-      switch (dao.template) {
-        case "registry":
-          dispatch({
-            type: ActionTypes.OPEN_REGISTRY_TRANSACTION,
-            payload: {
-              daoAddress: dao.address,
-            },
-          });
-          break;
-        case "treasury":
-          dispatch({
-            type: ActionTypes.OPEN_TREASURY_PROPOSAL,
-            payload: {
-              daoAddress: dao.address,
-            },
-          });
-          break;
-      }
-    }
-  }, [dao, dispatch]);
 
   const onFlush = useCallback(async () => {
     await connectIfNotConnected(tezos, connect);
@@ -87,17 +58,15 @@ export const Proposals: React.FC = () => {
       });
       return;
     }
-
-    console.log("no proposal data");
   }, [connect, data, mutate, proposalsData, tezos]);
 
-  const shouldDisable = useMemo(() => {
-    if(cycleInfo && cycleInfo.type === "voting") {
-      return true
-    }
+  const handleNewProposal = () => {
+    setOpen(true);
+  };
 
-    return false
-  }, [cycleInfo])
+  const handleCloseModal = () => {
+    setOpen(false);
+  };
 
   return (
     <>
@@ -135,8 +104,11 @@ export const Proposals: React.FC = () => {
                   >
                     EXECUTE
                   </ViewButton>
-                  <Tooltip title="Execute all passed proposals and drop all expired or rejected">
-                    <InfoIconInput color="secondary" />
+                  <Tooltip
+                    placement="bottom"
+                    title="Execute all passed proposals and drop all expired or rejected"
+                  >
+                    <InfoIcon color="secondary" />
                   </Tooltip>
                 </Grid>
               </Grid>
@@ -151,13 +123,25 @@ export const Proposals: React.FC = () => {
             spacing={2}
           >
             <Grid item>
-              <PrimaryButton
-                variant="outlined"
-                onClick={onNewProposal}
-                disabled={shouldDisable || !cycleInfo}
-              >
-                NEW PROPOSAL
-              </PrimaryButton>
+              <Grid container>
+                <Grid item>
+                  <PrimaryButton
+                    variant="outlined"
+                    onClick={handleNewProposal}
+                    disabled={shouldDisable}
+                  >
+                    NEW PROPOSAL
+                  </PrimaryButton>
+                </Grid>
+                {shouldDisable && (
+                  <Tooltip
+                    placement="bottom"
+                    title="Not on voting period"
+                  >
+                    <InfoIcon color="secondary" />
+                  </Tooltip>
+                )}
+              </Grid>
             </Grid>
           </ButtonsContainer>
         </RectangleContainer>
@@ -206,6 +190,19 @@ export const Proposals: React.FC = () => {
             </UnderlineText>
           </ProposalsContainer> */}
       </Grid>
+      {dao ? (
+        dao.template === "registry" ? (
+          <RegistryProposalFormContainer
+            open={open}
+            handleClose={handleCloseModal}
+          />
+        ) : (
+          <TreasuryProposalFormContainer
+            open={open}
+            handleClose={handleCloseModal}
+          />
+        )
+      ) : null}
     </>
   );
 };

@@ -1,17 +1,10 @@
+import { TreasuryDAO } from 'services/contracts/baseDAO';
 import { TransactionWalletOperation } from "@taquito/taquito";
 import { useNotification } from "modules/common/hooks/useNotification";
 import { useMutation, useQueryClient } from "react-query";
 import { useTezos } from "services/beacon/hooks/useTezos";
-import { TreasuryDAO } from "..";
-import { TransferParams } from "../types";
+import { TreasuryProposeArgs } from "../treasuryDAO/types";
 import { useCacheDAOs } from "./useCacheDAOs";
-
-interface Params {
-  dao: TreasuryDAO;
-  tokensToFreeze: number;
-  agoraPostId: number;
-  transfers: TransferParams[];
-}
 
 export const useTreasuryPropose = () => {
   const queryClient = useQueryClient();
@@ -19,8 +12,8 @@ export const useTreasuryPropose = () => {
   const { setDAO } = useCacheDAOs();
   const { network } = useTezos()
 
-  return useMutation<TransactionWalletOperation | Error, Error, Params>(
-    async (params) => {
+  return useMutation<TransactionWalletOperation | Error, Error, { dao: TreasuryDAO, args: TreasuryProposeArgs }>(
+    async ({ dao, args }) => {
       const {
         key: proposalNotification,
         closeSnackbar: closeProposalNotification,
@@ -31,12 +24,7 @@ export const useTreasuryPropose = () => {
       });
 
       try {
-        const data = await params.dao.proposeTransfer({
-          ...params,
-          tokensToFreeze: params.tokensToFreeze,
-          agoraPostId: params.agoraPostId,
-          transfers: params.transfers,
-        });
+        const data = await dao.propose(args);
 
         await data.confirmation(1);
         closeProposalNotification(proposalNotification);
@@ -47,7 +35,7 @@ export const useTreasuryPropose = () => {
           variant: "success",
           detailsLink: `https://${network}.tzkt.io/` + data.opHash,
         });
-        setDAO(params.dao);
+        setDAO(dao);
         return data;
 
       } catch (e) {
@@ -63,7 +51,7 @@ export const useTreasuryPropose = () => {
     },
     {
       onSuccess: () => {
-        queryClient.invalidateQueries("proposals");
+        queryClient.resetQueries("proposals");
       },
     }
   );

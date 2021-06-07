@@ -16,7 +16,7 @@ import ProgressBar from "react-customizable-progressbar";
 import { useHistory } from "react-router";
 
 import { CreatorContext, StepInfo } from "modules/creator/state";
-import { CurrentStep, STEPS, useStepNumber } from "modules/creator/steps";
+import { StepRouter, STEPS, useStepNumber } from "modules/creator/steps";
 import HomeButton from "assets/logos/homebase_logo.svg";
 import { NavigationBar } from "modules/creator/components/NavigationBar";
 import { Navbar } from "modules/common/Toolbar";
@@ -103,7 +103,7 @@ export const DAOCreate: React.FC = () => {
 
   const { back, next } = creator.state;
   const step = useStepNumber();
-  const progress = useMemo(() => step * 25, [step]);
+  const progress = useMemo(() => step * 20, [step]);
   const history = useHistory();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -167,7 +167,7 @@ export const DAOCreate: React.FC = () => {
             >
               <Box className="indicator">
                 <IndicatorValue>
-                  {progress === 0.5 ? 0 : step * 25}%
+                  {progress === 0.5 ? 0 : step * 20}%
                 </IndicatorValue>
               </Box>
             </ProgressBar>
@@ -192,12 +192,12 @@ export const DAOCreate: React.FC = () => {
           <Navbar mode="creator" />
           <Grid item style={{ width: "100%" }} xs>
             <StepContentContainer item container justify="center">
-              <CurrentStep />
+              <StepRouter />
             </StepContentContainer>
           </Grid>
         </Grid>
       </StepContentHeigth>
-      {step < 4 && <NavigationBar back={back} next={next} />}
+      {step < 5 && <NavigationBar back={back} next={next} />}
     </PageContainer>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useCallback, useContext } from "react";
+import React from "react";
 import {
   Grid,
   Paper,
@@ -8,10 +8,7 @@ import {
   useTheme,
   withTheme,
 } from "@material-ui/core";
-import { ActionTypes, ModalsContext } from "modules/explorer/ModalsContext";
 import dayjs from "dayjs";
-import { useParams } from "react-router";
-import { SettingsIcon } from "modules/explorer/components/SettingsIcon";
 import { TemplateTableRowContainer } from "modules/explorer/components/TemplateTableRowContainer";
 
 const TokenName = styled(withTheme(Paper))((props) => ({
@@ -42,21 +39,10 @@ export const RegistryTableRow: React.FC<{
   name: string;
   value: string;
   lastUpdated: string;
-}> = ({ name, value, lastUpdated }) => {
-  const { id } = useParams<{ id: string }>();
-  const { dispatch } = useContext(ModalsContext);
+  onClickRow?: React.MouseEventHandler<HTMLDivElement> | undefined
+}> = ({ name, value, lastUpdated, onClickRow }) => {
   const theme = useTheme();
   const isMobileSmall = useMediaQuery(theme.breakpoints.down("sm"));
-
-  const onClickRow = useCallback(() => {
-    dispatch({
-      type: ActionTypes.OPEN_REGISTRY_ITEM,
-      payload: {
-        key: name,
-        value,
-      },
-    });
-  }, [dispatch, name, value]);
 
   return (
     <TemplateTableRowContainer
@@ -82,7 +68,7 @@ export const RegistryTableRow: React.FC<{
       </Grid>
       <Grid
         item
-        xs={isMobileSmall ? 12 : 4}
+        xs={isMobileSmall ? 12 : 6}
         container
         direction="row"
         alignItems="center"
@@ -134,23 +120,6 @@ export const RegistryTableRow: React.FC<{
           <Cursor variant="subtitle1" color="textSecondary">
             {dayjs(lastUpdated).format("LLL")}
           </Cursor>
-        </Grid>
-      </Grid>
-      <Grid xs={2} item>
-        <Grid container direction="row" justify="flex-end" alignItems="center">
-          <SettingsIcon
-            onClick={(e) => {
-              e.stopPropagation();
-              dispatch({
-                type: ActionTypes.OPEN_REGISTRY_PROPOSAL,
-                payload: {
-                  isUpdate: true,
-                  itemToUpdate: { key: name, value },
-                  daoAddress: id,
-                },
-              });
-            }}
-          />
         </Grid>
       </Grid>
     </TemplateTableRowContainer>

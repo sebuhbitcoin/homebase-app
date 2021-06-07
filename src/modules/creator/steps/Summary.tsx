@@ -1,12 +1,7 @@
 import { Box, Grid, styled, Typography } from "@material-ui/core";
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect } from "react";
 import { useHistory, useRouteMatch } from "react-router-dom";
-import { TokenHoldersRow } from "modules/explorer/components/TokenHolders";
-import {
-  ActionTypes,
-  TokenHolder,
-  CreatorContext,
-} from "modules/creator/state";
+import { ActionTypes, CreatorContext } from "modules/creator/state";
 
 const CustomTypography = styled(Typography)({
   marginTop: 10,
@@ -51,24 +46,8 @@ const UnderlinedGrid = styled(Grid)(({ theme }) => ({
   padding: 2,
 }));
 
-const TokenHoldersContainer = styled(Box)({
-  marginTop: 5,
-  maxHeight: 200,
-  overflowY: "auto",
-  width: "100%",
-});
-
-const ViewMore = styled(Typography)({
-  cursor: "pointer",
-  marginTop: 30,
-  marginBottom: 30,
-  textDecoration: "underline",
-});
-
 export const Summary = (): JSX.Element => {
   const { dispatch, state } = useContext(CreatorContext);
-  const { activeStep } = state;
-  const [showMore, setShowMore] = useState(false);
   const history = useHistory();
   const match = useRouteMatch();
 
@@ -76,8 +55,12 @@ export const Summary = (): JSX.Element => {
     history.push(`voting`);
   };
 
+  const goToQuorum = () => {
+    history.push(`quorum`);
+  };
+
   const goToSettings = () => {
-    history.push(`token`);
+    history.push(`dao`);
   };
 
   useEffect(() => {
@@ -90,11 +73,11 @@ export const Summary = (): JSX.Element => {
         text: "LAUNCH",
       },
       back: {
-        handler: () => history.push(`voting`),
+        handler: () => history.push(`quorum`),
         text: "BACK",
       },
     });
-  }, [activeStep, dispatch, history, match.path, match.url]);
+  }, [dispatch, history, match.path, match.url]);
 
   return (
     <Box maxWidth={650}>
@@ -116,13 +99,6 @@ export const Summary = (): JSX.Element => {
         </Grid>
 
         <SecondContainer container direction="row">
-          {state.data.orgSettings.governanceToken.address ? (
-            <Grid item xs={12}>
-              <TitleSpacing color="secondary" variant="subtitle1">
-                {state.data.orgSettings.governanceToken.address}
-              </TitleSpacing>
-            </Grid>
-          ) : null}
           <Grid item xs={12}>
             <TitleSpacing color="secondary" variant="subtitle1">
               {state.data.orgSettings.symbol}
@@ -143,7 +119,7 @@ export const Summary = (): JSX.Element => {
         <SecondContainer container direction="row">
           <Grid item xs={6}>
             <ContainerSpacing color="textSecondary" variant="subtitle1">
-              TOKEN SETTINGS
+              DAO SETTINGS
             </ContainerSpacing>
           </Grid>
           <Grid item xs={6}>
@@ -159,40 +135,88 @@ export const Summary = (): JSX.Element => {
 
           <Grid item xs={12}>
             <AdminContainer container direction="row" alignItems="center">
-              <Grid item xs={3}>
+              <Grid item xs={6} sm={3}>
                 <Typography variant="subtitle1" color="textSecondary">
                   Administrator
                 </Typography>
               </Grid>
-              <Grid item xs={9}>
+              <Grid item xs={6} sm={9}>
                 <AdminAddress
                   variant="subtitle1"
                   color="textSecondary"
                   align="right"
                 >
-                  {state.data.memberSettings.administrator}
+                  {state.data.orgSettings.administrator}
+                </AdminAddress>
+              </Grid>
+            </AdminContainer>
+          </Grid>
+
+          <Grid item xs={12}>
+            <AdminContainer container direction="row" alignItems="center">
+              <Grid item xs={6} sm={3}>
+                <Typography variant="subtitle1" color="textSecondary">
+                  Guardian
+                </Typography>
+              </Grid>
+              <Grid item xs={6} sm={9}>
+                <AdminAddress
+                  variant="subtitle1"
+                  color="textSecondary"
+                  align="right"
+                >
+                  {state.data.orgSettings.guardian}
                 </AdminAddress>
               </Grid>
             </AdminContainer>
           </Grid>
         </SecondContainer>
 
-        <TokenHoldersContainer>
-          {state.data.memberSettings.tokenHolders.map(
-            (holder: TokenHolder, i: number) => {
-              return (
-                <TokenHoldersRow
-                  key={`holder-${i}`}
-                  {...holder}
-                  symbol={state.data.orgSettings.symbol}
-                />
-              );
-            }
-          )}
-        </TokenHoldersContainer>
+        <Grid item xs={12}>
+          <UnderlinedGrid item container direction="row" alignItems="center">
+            <Grid item xs={6} sm={5}>
+              <Typography variant="body2" color="textSecondary">
+                Governance Token Address
+              </Typography>
+            </Grid>
+            <Grid item xs={6} sm={7}>
+              <AdminAddress
+                variant="subtitle1"
+                color="textSecondary"
+                align="right"
+              >
+                {state.data.orgSettings.governanceToken.address}
+              </AdminAddress>
+            </Grid>
+          </UnderlinedGrid>
+        </Grid>
+
+        <Grid item xs={12}>
+          <UnderlinedGrid item container direction="row" alignItems="center">
+            <Grid item xs={5}>
+              <Typography variant="body2" color="textSecondary">
+                Governance Token ID
+              </Typography>
+            </Grid>
+            <Grid item xs={7}>
+              <Typography
+                variant="subtitle1"
+                color="textSecondary"
+                align="right"
+              >
+                {state.data.orgSettings.governanceToken.tokenId}
+              </Typography>
+            </Grid>
+          </UnderlinedGrid>
+        </Grid>
 
         <SecondContainer container direction="row">
-          <Grid item xs={12}>
+          <Grid item xs={6}>
+            <ContainerSpacing color="textSecondary" variant="subtitle1">
+              PROPOSAL & VOTING SETTINGS
+            </ContainerSpacing>
+          </Grid>
+          <Grid item xs={6}>
             <ContainerButton
               color="secondary"
               variant="subtitle1"
@@ -228,6 +252,48 @@ export const Summary = (): JSX.Element => {
             <UnderlinedGrid item container direction="row" alignItems="center">
               <Grid item xs={6}>
                 <Typography variant="body2" color="textSecondary">
+                  Flush Delay Duration
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography
+                  variant="subtitle1"
+                  color="textSecondary"
+                  align="right"
+                >
+                  {state.data.votingSettings.proposalFlushDays}d{" "}
+                  {state.data.votingSettings.proposalFlushHours}h{" "}
+                  {state.data.votingSettings.proposalFlushMinutes}m
+                </Typography>
+              </Grid>
+            </UnderlinedGrid>
+          </Grid>
+
+          <Grid item xs={12}>
+            <UnderlinedGrid item container direction="row" alignItems="center">
+              <Grid item xs={6}>
+                <Typography variant="body2" color="textSecondary">
+                  Proposal time to expire
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography
+                  variant="subtitle1"
+                  color="textSecondary"
+                  align="right"
+                >
+                  {state.data.votingSettings.proposalExpiryDays}d{" "}
+                  {state.data.votingSettings.proposalExpiryHours}h{" "}
+                  {state.data.votingSettings.proposalExpiryMinutes}m
+                </Typography>
+              </Grid>
+            </UnderlinedGrid>
+          </Grid>
+
+          <Grid item xs={12}>
+            <UnderlinedGrid item container direction="row" alignItems="center">
+              <Grid item xs={6}>
+                <Typography variant="body2" color="textSecondary">
                   Stake required to propose
                 </Typography>
               </Grid>
@@ -237,8 +303,7 @@ export const Summary = (): JSX.Element => {
                   color="textSecondary"
                   align="right"
                 >
-                  {state.data.votingSettings.proposeStakeRequired}
-                  {state.data.orgSettings.symbol}
+                  {state.data.votingSettings.proposeStakeRequired} locked tokens
                 </Typography>
               </Grid>
             </UnderlinedGrid>
@@ -257,8 +322,7 @@ export const Summary = (): JSX.Element => {
                   color="textSecondary"
                   align="right"
                 >
-                  {state.data.votingSettings.frozenScaleValue}% of locked{" "}
-                  {state.data.orgSettings.symbol}
+                  {state.data.votingSettings.frozenScaleValue}% of locked tokens
                 </Typography>
               </Grid>
             </UnderlinedGrid>
@@ -290,97 +354,169 @@ export const Summary = (): JSX.Element => {
             </Grid>
           )}
 
-          {showMore ? (
-            <>
-              {state.data.template === "treasury" && (
-                <Grid item xs={12}>
-                  <UnderlinedGrid
-                    item
-                    container
-                    direction="row"
-                    alignItems="center"
-                  >
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="textSecondary">
-                        Transfer minimum XTZ amount
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography
-                        variant="subtitle1"
-                        color="textSecondary"
-                        align="right"
-                      >
-                        {state.data.votingSettings.minXtzAmount} XTZ
-                      </Typography>
-                    </Grid>
-                  </UnderlinedGrid>
-                </Grid>
-              )}
-
-              <Grid item xs={12}>
-                <UnderlinedGrid
-                  item
-                  container
-                  direction="row"
-                  alignItems="center"
-                >
-                  <Grid item xs={6}>
-                    <Typography variant="body2" color="textSecondary">
-                      Quorum threshold
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography
-                      variant="subtitle1"
-                      color="textSecondary"
-                      align="right"
-                    >
-                      {state.data.votingSettings.quorumTreshold}{" "}
-                      {state.data.orgSettings.symbol}
-                    </Typography>
-                  </Grid>
-                </UnderlinedGrid>
-              </Grid>
-
-              <Grid item xs={12}>
-                <UnderlinedGrid
-                  item
-                  container
-                  direction="row"
-                  alignItems="center"
-                >
-                  <Grid item xs={6}>
-                    <Typography variant="body2" color="textSecondary">
-                      Maximum proposal size
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography
-                      variant="subtitle1"
-                      color="textSecondary"
-                      align="right"
-                    >
-                      {state.data.votingSettings.maxProposalSize}
-                    </Typography>
-                  </Grid>
-                </UnderlinedGrid>
-              </Grid>
-            </>
-          ) : null}
-
-          <Grid item xs={12}>
-            <Grid container direction="row" justify="center">
-              <ViewMore
-                variant="subtitle1"
-                color="textSecondary"
-                onClick={() => setShowMore(!showMore)}
+          {state.data.template === "treasury" && (
+            <Grid item xs={12}>
+              <UnderlinedGrid
+                item
+                container
+                direction="row"
+                alignItems="center"
               >
-                {" "}
-                {!showMore ? "VIEW ALL" : "VIEW LESS"}{" "}
-              </ViewMore>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">
+                    Transfer minimum XTZ amount
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography
+                    variant="subtitle1"
+                    color="textSecondary"
+                    align="right"
+                  >
+                    {state.data.votingSettings.minXtzAmount} XTZ
+                  </Typography>
+                </Grid>
+              </UnderlinedGrid>
             </Grid>
-          </Grid>
+          )}
+
+          <SecondContainer container direction="row">
+            <Grid item xs={6}>
+              <ContainerSpacing color="textSecondary" variant="subtitle1">
+                QUORUM SETTINGS
+              </ContainerSpacing>
+            </Grid>
+            <Grid item xs={6}>
+              <ContainerButton
+                color="secondary"
+                variant="subtitle1"
+                align="right"
+                onClick={goToQuorum}
+              >
+                EDIT
+              </ContainerButton>
+            </Grid>
+            <Grid item xs={12}>
+              <UnderlinedGrid
+                item
+                container
+                direction="row"
+                alignItems="center"
+              >
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">
+                    Quorum threshold
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography
+                    variant="subtitle1"
+                    color="textSecondary"
+                    align="right"
+                  >
+                    {state.data.quorumSettings.quorumThreshold}%
+                  </Typography>
+                </Grid>
+              </UnderlinedGrid>
+            </Grid>
+
+            <Grid item xs={12}>
+              <UnderlinedGrid
+                item
+                container
+                direction="row"
+                alignItems="center"
+              >
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">
+                    Quorum Change
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography
+                    variant="subtitle1"
+                    color="textSecondary"
+                    align="right"
+                  >
+                    {state.data.quorumSettings.quorumChange}%
+                  </Typography>
+                </Grid>
+              </UnderlinedGrid>
+            </Grid>
+
+            <Grid item xs={12}>
+              <UnderlinedGrid
+                item
+                container
+                direction="row"
+                alignItems="center"
+              >
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">
+                    Quorum Max Change
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography
+                    variant="subtitle1"
+                    color="textSecondary"
+                    align="right"
+                  >
+                    {state.data.quorumSettings.quorumMaxChange}%
+                  </Typography>
+                </Grid>
+              </UnderlinedGrid>
+            </Grid>
+
+            <Grid item xs={12}>
+              <UnderlinedGrid
+                item
+                container
+                direction="row"
+                alignItems="center"
+              >
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">
+                    Quorum Min. Amount
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography
+                    variant="subtitle1"
+                    color="textSecondary"
+                    align="right"
+                  >
+                    {state.data.quorumSettings.minQuorumAmount}%
+                  </Typography>
+                </Grid>
+              </UnderlinedGrid>
+            </Grid>
+
+            <Grid item xs={12}>
+              <UnderlinedGrid
+                item
+                container
+                direction="row"
+                alignItems="center"
+              >
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">
+                    Quorum Max. Amount
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography
+                    variant="subtitle1"
+                    color="textSecondary"
+                    align="right"
+                  >
+                    {state.data.quorumSettings.maxQuorumAmount}%
+                  </Typography>
+                </Grid>
+              </UnderlinedGrid>
+            </Grid>
+
+          </SecondContainer>
         </SecondContainer>
       </Grid>
     </Box>

@@ -1,3 +1,5 @@
+import { DAOTemplate } from "modules/creator/state";
+
 export type MutezTransfer = {
   prim: string;
   type: string;
@@ -25,7 +27,7 @@ export type MutezTransfer = {
   ];
 };
 
-export type ProposalDTO<MetadataType = { prim: "bytes"; type: "bytes" }> = {
+export type ProposalDTO = {
   data: {
     key: {
       prim: "bytes";
@@ -48,20 +50,6 @@ export type ProposalDTO<MetadataType = { prim: "bytes"; type: "bytes" }> = {
           prim: "map";
           type: "map";
           name: "metadata";
-          children: [
-            {
-              prim: "bytes";
-              type: "bytes";
-              name: "agoraPostID";
-              value: string;
-            },
-            MetadataType
-          ];
-        },
-        {
-          prim: "nat";
-          type: "nat";
-          name: "period_num";
           value: string;
         },
         {
@@ -73,18 +61,18 @@ export type ProposalDTO<MetadataType = { prim: "bytes"; type: "bytes" }> = {
         {
           prim: "nat";
           type: "nat";
-          name: "proposer_fixed_fee_in_token";
+          name: "proposer_frozen_token";
           value: string;
         },
         {
           prim: "nat";
           type: "nat";
-          name: "proposer_frozen_token";
+          name: "quorum_threshold";
           value: string;
         },
         {
-          prim: "timestamp";
-          type: "timestamp";
+          prim: "nat";
+          type: "nat";
           name: "start_date";
           value: string;
         },
@@ -98,7 +86,14 @@ export type ProposalDTO<MetadataType = { prim: "bytes"; type: "bytes" }> = {
           prim: "list";
           type: "list";
           name: "voters";
-        }
+          value: any;
+        },
+        {
+          prim: "nat";
+          type: "nat";
+          name: "voting_stage_num";
+          value: string;
+        },
       ];
     };
     key_hash: "exprtZqjgqRrZr2h8Hd43wFQqnBxtNHH2UCuwaD1oEpYnJjg1DJmBH";
@@ -108,13 +103,6 @@ export type ProposalDTO<MetadataType = { prim: "bytes"; type: "bytes" }> = {
   };
   count: 1;
 }[];
-
-export type RegistryUpdateProposalsDTO = ProposalDTO<{
-  prim: "bytes";
-  type: "bytes";
-  name: "updates";
-  value: string;
-}>;
 
 export type VotersDTO = {
   prim: "list";
@@ -152,28 +140,17 @@ export interface Voter {
   value: number;
   support: boolean;
 }
-
-export type TransferProposalsDTO = ProposalDTO<{
-  prim: "bytes";
-  type: "bytes";
-  name: "transfers";
-  value: string;
-}>;
-
-export type RegistryProposalsDTO =
-  | RegistryUpdateProposalsDTO
-  | TransferProposalsDTO;
-
 export interface Proposal {
   id: string;
   upVotes: number;
   downVotes: number;
   startDate: string;
-  agoraPostId: string;
+  
+  quorumThreshold: string;
   proposer: string;
-  cycle: number;
+  period: number;
   proposerFrozenTokens: string;
-  type: "registryUpdate" | "transfer";
+  type: DAOTemplate;
   voters: {
     address: string;
     support: boolean;
@@ -181,34 +158,48 @@ export interface Proposal {
   }[];
 }
 
-export interface TransferProposal extends Proposal {
+export interface TreasuryProposal extends Proposal {
   transfers: Transfer[];
+  agoraPostId: string;
 }
 
-export interface RegistryUpdateProposal extends Proposal {
+export interface RegistryProposal extends Proposal {
   list: {
     key: string;
     value: string;
   }[];
+  transfers: Transfer[];
+  agoraPostId: string;
 }
 export interface ProposalWithStatus extends Proposal {
   status: ProposalStatus;
+  flushable: boolean;
+  statusHistory: { status: ProposalStatus, timestamp: string }[]
 }
 
-export interface RegistryProposalWithStatus extends RegistryUpdateProposal {
+export interface RegistryProposalWithStatus extends RegistryProposal {
   status: ProposalStatus;
+  flushable: boolean;
+  statusHistory: { status: ProposalStatus, timestamp: string }[]
 }
 
-export interface TransferProposalWithStatus extends TransferProposal {
+export interface TreasuryProposalWithStatus extends TreasuryProposal {
   status: ProposalStatus;
+  flushable: boolean;
+  statusHistory: { status: ProposalStatus, timestamp: string }[]
 }
 
 export enum ProposalStatus {
-  CREATED = "created",
+  PENDING = "pending",
   ACTIVE = "active",
+
   PASSED = "passed",
   REJECTED = "rejected",
+
+  NO_QUORUM = "no quorum",
+
   DROPPED = "dropped",
+  EXPIRED = "expired",
   EXECUTED = "executed",
 }
 

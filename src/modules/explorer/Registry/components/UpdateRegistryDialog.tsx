@@ -1,60 +1,29 @@
-import React, { useCallback, useContext } from "react";
+import React, { useCallback } from "react";
 import {
   Grid,
   styled,
-  Switch,
   Typography,
   Paper,
-  DialogTitle,
   DialogContent,
   DialogContentText,
-  Dialog,
-  MenuItem,
 } from "@material-ui/core";
-import { Formik, Form, Field, FieldArray } from "formik";
-import { TextField, Select } from "formik-material-ui";
-import { Registry, RegistryDAO } from "services/contracts/baseDAO";
-import { ActionTypes } from "modules/explorer/ModalsContext";
-import { ModalsContext } from "modules/explorer/ModalsContext";
-import { useRegistryPropose } from "services/contracts/baseDAO/hooks/useRegistryPropose";
-import { useDAO } from "services/contracts/baseDAO/hooks/useDAO";
-import { char2Bytes } from "@taquito/tzip16";
-import { ViewButton } from "modules/explorer/components/ViewButton";
-import { useTezos } from "services/beacon/hooks/useTezos";
-import { connectIfNotConnected } from "services/contracts/utils";
+import {
+  Form,
+  Field,
+  FieldArray,
+  useFormikContext,
+} from "formik";
+import { TextField, Switch } from "formik-material-ui";
 import { fromRegistryListFile, validateRegistryListJSON } from "../pages/utils";
 import { useNotification } from "modules/common/hooks/useNotification";
-import { CustomTextarea, DescriptionContainer, ProposalTextContainer } from "modules/explorer/components/ProposalTextContainer";
-
-const SendButton = styled(ViewButton)({
-  width: "100%",
-  border: "none",
-  borderTop: "1px solid #4BCF93",
-});
-
-const FullWidthSelect = styled(Select)({
-  width: "100%",
-});
-
-const CloseButton = styled(Typography)({
-  fontWeight: 900,
-  cursor: "pointer",
-});
-
-const Title = styled(DialogTitle)(({ theme }) => ({
-  borderBottom: `2px solid ${theme.palette.primary.light}`,
-  height: 30,
-  paddingTop: 28,
-  minWidth: 500,
-}));
-
-const ListItem = styled(Grid)(({ theme }) => ({
-  height: 70,
-  display: "flex",
-  alignItems: "center",
-  borderBottom: `2px solid ${theme.palette.primary.light}`,
-  padding: "0px 24px",
-}));
+import {
+  CustomTextarea,
+  DescriptionContainer,
+} from "modules/explorer/components/ProposalTextContainer";
+import { ProposalFormListItem } from "modules/explorer/components/styled/ProposalFormListItem";
+import { ErrorText } from "modules/explorer/components/styled/ErrorText";
+import { Registry } from "services/contracts/baseDAO";
+import * as Yup from "yup";
 
 const UploadButtonContainer = styled(Grid)(({ theme }) => ({
   height: 70,
@@ -66,10 +35,6 @@ const UploadButtonContainer = styled(Grid)(({ theme }) => ({
 
 const FileInput = styled("input")({
   display: "none",
-});
-
-const SendContainer = styled(Grid)({
-  height: 55,
 });
 
 const BatchBar = styled(Grid)(({ theme }) => ({
@@ -140,361 +105,210 @@ const CustomTextField = styled(TextField)({
   },
 });
 
-interface Values {
-  list: Registry[];
-  description: string;
-  title: string;
-}
+export const EMPTY_LIST_ITEM: Registry = { key: "", value: "" };
 
-const EMPTY_LIST_ITEM: Registry = { key: "", value: "" };
-const INITIAL_FORM_VALUES: Values = {
-  list: [EMPTY_LIST_ITEM],
-  description: "",
-  title: "",
+export const INITIAL_REGISTRY_FORM_VALUES: UpdateRegistryDialogValues = {
+  registryForm: {
+    list: [EMPTY_LIST_ITEM],
+    isBatch: false,
+  },
 };
 
+export interface UpdateRegistryDialogValues {
+  registryForm: {
+    list: Registry[];
+    isBatch: boolean;
+  };
+}
+
+export const registryValidationSchema = Yup.object().shape({
+  registryForm: Yup.object().shape({
+    list: Yup.array().of(
+      Yup.object().shape({
+        key: Yup.string().required("Required"),
+      })
+    ),
+  }),
+});
+
 export const UpdateRegistryDialog: React.FC = () => {
-  const [isBatch, setIsBatch] = React.useState(false);
-  const [activeItem, setActiveItem] = React.useState(1);
   const {
-    state: {
-      registryProposal: {
-        open,
-        params: { isUpdate, itemToUpdate },
-      },
-      daoId,
-    },
-    dispatch,
-  } = useContext(ModalsContext);
+    values,
+    setFieldValue,
+    errors,
+    touched,
+  } = useFormikContext<UpdateRegistryDialogValues>();
+  const [activeItem, setActiveItem] = React.useState(1);
   const openNotification = useNotification();
-  const { data: daoData } = useDAO(daoId);
-  const dao = daoData as RegistryDAO | undefined;
-  const { mutate } = useRegistryPropose();
-  const { tezos, connect } = useTezos();
 
-  const handleClose = useCallback(() => {
-    dispatch({
-      type: ActionTypes.CLOSE,
-      payload: {
-        modal: "registryProposal",
-      },
-    });
-  }, [dispatch]);
+  const keyError = (errors.registryForm?.list?.[activeItem - 1] as any)?.key;
+  const valueError = (errors.registryForm?.list?.[activeItem - 1] as any)
+    ?.value;
 
-  const onSubmit = useCallback(
-    async (values: Values) => {
-      await connectIfNotConnected(tezos, connect);
+  const importList = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      if (event.currentTarget.files) {
+        try {
+          const file = event.currentTarget.files[0];
+          const registryListParsed = await fromRegistryListFile(file);
+          const errors = validateRegistryListJSON(registryListParsed);
 
-      if (dao) {
-        mutate({
-          dao,
-          tokensToFreeze: dao.extra.frozenExtraValue,
-          agoraPostId: 0,
-          items: values.list.map(({ key, value }) => ({
-            key: char2Bytes(key),
-            newValue: char2Bytes(value),
-          })),
-        });
-
-        dispatch({
-          type: ActionTypes.CLOSE,
-          payload: { modal: "registryProposal" },
-        });
+          if (errors.length) {
+            openNotification({
+              message: "Error while parsing JSON",
+              persist: true,
+              variant: "error",
+            });
+            return;
+          }
+          setFieldValue("registryForm.isBatch", true);
+          values.registryForm.list = registryListParsed;
+        } catch (e) {
+          openNotification({
+            message: "Error while parsing JSON",
+            persist: true,
+            variant: "error",
+          });
+        }
       }
     },
-    [connect, dao, dispatch, mutate, tezos]
+    [openNotification, setFieldValue, values.registryForm]
   );
 
   return (
     <>
-      <Dialog
-        open={open}
-        onClose={handleClose}
-        aria-labelledby="alert-dialog-title"
-        aria-describedby="alert-dialog-description"
-      >
-        <Title id="alert-dialog-title" color="textSecondary">
-          <Grid container direction="row">
+      <DialogContent>
+        <DialogContentText id="alert-dialog-description">
+          <ProposalFormListItem container direction="row">
             <Grid item xs={6}>
               <Typography variant="subtitle1" color="textSecondary">
-                {isUpdate ? "UPDATE REGISTRY ITEM" : "ADD REGISTRY ITEM"}
+                Batch Update?
               </Typography>
             </Grid>
             <Grid item xs={6}>
-              <CloseButton
-                color="textSecondary"
-                align="right"
-                onClick={handleClose}
-              >
-                X
-              </CloseButton>
+              <SwitchContainer item xs={12} justify="flex-end">
+                <Field
+                  component={Switch}
+                  type="checkbox"
+                  name="registryForm.isBatch"
+                />
+              </SwitchContainer>
             </Grid>
-          </Grid>
-        </Title>
-        <DialogContent>
-          <DialogContentText id="alert-dialog-description">
-            <ListItem container direction="row">
-              <Grid item xs={6}>
-                <Typography variant="subtitle1" color="textSecondary">
-                  Add Batches?
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <SwitchContainer item xs={12} justify="flex-end">
-                  <Switch
-                    checked={isBatch}
-                    onChange={() => {
-                      setIsBatch(!isBatch);
-                      return;
-                    }}
-                    name="checkedA"
-                    inputProps={{ "aria-label": "secondary checkbox" }}
-                  />
-                </SwitchContainer>
-              </Grid>
-            </ListItem>
+          </ProposalFormListItem>
 
-            <Formik
-              initialValues={{
-                ...INITIAL_FORM_VALUES,
-                list: [
-                  {
-                    key: itemToUpdate?.key || "",
-                    value: itemToUpdate?.value || "",
-                  },
-                ],
-              }}
-              onSubmit={onSubmit}
-            >
-              {({ submitForm, values, setFieldValue }) => {
-                const importList = async (
-                  event: React.ChangeEvent<HTMLInputElement>
-                ) => {
-                  if (event.currentTarget.files) {
-                    try {
-                      const file = event.currentTarget.files[0];
-                      const registryListParsed = await fromRegistryListFile(
-                        file
-                      );
-                      console.log(registryListParsed);
-                      const errors = validateRegistryListJSON(
-                        registryListParsed
-                      );
-                      console.log(errors);
-                      if (errors.length) {
-                        openNotification({
-                          message: "Error while parsing JSON",
-                          persist: true,
-                          variant: "error",
-                        });
-                        return;
-                      }
-                      setIsBatch(true);
-                      values.list = registryListParsed;
-                    } catch (e) {
-                      openNotification({
-                        message: "Error while parsing JSON",
-                        persist: true,
-                        variant: "error",
-                      });
-                    }
-                  }
-                };
+          <Form autoComplete="off">
+            <>
+              <FieldArray
+                name="registryForm.list"
+                render={(arrayHelpers) => (
+                  <>
+                    {values.registryForm.isBatch ? (
+                      <BatchBar container direction="row" wrap="nowrap">
+                        {values.registryForm.list.map((_, index) => {
+                          return (
+                            <TransferActive
+                              item
+                              key={index}
+                              onClick={() => setActiveItem(index + 1)}
+                              style={
+                                Number(index + 1) === activeItem
+                                  ? styles.active
+                                  : undefined
+                              }
+                            >
+                              <Typography
+                                variant="subtitle1"
+                                color="textSecondary"
+                              >
+                                #{index + 1}
+                              </Typography>
+                            </TransferActive>
+                          );
+                        })}
 
-                return (
-                  <Form autoComplete="off">
-                    <>
-                      <FieldArray
-                        name="list"
-                        render={(arrayHelpers) => (
-                          <>
-                            {isBatch ? (
-                              <BatchBar container direction="row" wrap="nowrap">
-                                {values.list.map((_, index) => {
-                                  return (
-                                    <TransferActive
-                                      item
-                                      key={index}
-                                      onClick={() => setActiveItem(index + 1)}
-                                      style={
-                                        Number(index + 1) === activeItem
-                                          ? styles.active
-                                          : undefined
-                                      }
-                                    >
-                                      <Typography
-                                        variant="subtitle1"
-                                        color="textSecondary"
-                                      >
-                                        #{index + 1}
-                                      </Typography>
-                                    </TransferActive>
-                                  );
-                                })}
+                        <AddButton
+                          onClick={() => {
+                            arrayHelpers.insert(
+                              values.registryForm.list.length + 1,
+                              EMPTY_LIST_ITEM
+                            );
+                            setActiveItem(activeItem + 1);
+                          }}
+                        >
+                          +
+                        </AddButton>
+                      </BatchBar>
+                    ) : null}
 
-                                <AddButton
-                                  onClick={() => {
-                                    arrayHelpers.insert(
-                                      values.list.length + 1,
-                                      EMPTY_LIST_ITEM
-                                    );
-                                    setActiveItem(activeItem + 1);
-                                  }}
-                                >
-                                  +
-                                </AddButton>
-                              </BatchBar>
-                            ) : null}
-
-                            <ListItem container direction="row">
-                              <Grid item xs={6}>
-                                <Typography
-                                  variant="subtitle1"
-                                  color="textSecondary"
-                                >
-                                  Key
-                                </Typography>
-                              </Grid>
-                              <Grid item xs={6}>
-                                <SwitchContainer
-                                  item
-                                  xs={12}
-                                  justify="flex-end"
-                                >
-                                  {!isUpdate ? (
-                                    <Field
-                                      name={`list.${activeItem - 1}.key`}
-                                      type="string"
-                                      placeholder="Type a Key"
-                                      component={CustomTextField}
-                                    />
-                                  ) : (
-                                    <>
-                                      {dao && (
-                                        <Field
-                                          name={`list.${activeItem - 1}.key`}
-                                          type="select"
-                                          placeholder="Type a Key"
-                                          defaultValue={""}
-                                          onChange={(e: any) => {
-                                            setFieldValue(
-                                              `list.${activeItem - 1}.key`,
-                                              e.target.value
-                                            );
-                                            setFieldValue(
-                                              `list.${activeItem - 1}.value`,
-                                              dao.extra.registry.find(
-                                                (item) =>
-                                                  item.key === e.target.value
-                                              )?.value
-                                            );
-                                          }}
-                                          component={FullWidthSelect}
-                                        >
-                                          <MenuItem value={"default"} disabled>
-                                            Select a Key
-                                          </MenuItem>
-                                          {dao &&
-                                            dao.extra.registry.map(({ key }, i) => (
-                                              <MenuItem
-                                                key={`option-${i}`}
-                                                value={key}
-                                              >
-                                                {key}
-                                              </MenuItem>
-                                            ))}
-                                        </Field>
-                                      )}
-                                    </>
-                                  )}
-                                </SwitchContainer>
-                              </Grid>
-                            </ListItem>
-
-                            <DescriptionContainer container direction="row">
-                              <Grid item xs={12}>
-                                <Grid
-                                  container
-                                  direction="row"
-                                  alignItems="center"
-                                  justify="space-between"
-                                >
-                                  <Grid item xs={12}>
-                                    <Typography
-                                      variant="subtitle1"
-                                      color="textSecondary"
-                                    >
-                                      Value
-                                    </Typography>
-                                  </Grid>
-                                </Grid>
-                              </Grid>
-                              <Grid item xs={12}>
-                                <Field
-                                  name={`list.${activeItem - 1}.value`}
-                                  multiline
-                                  type="string"
-                                  rows={6}
-                                  placeholder="Type a value"
-                                  component={CustomTextarea}
-                                  onChange={(e: any) => {
-                                    setFieldValue(
-                                      `list.${activeItem - 1}.value`,
-                                      e.target.value
-                                    );
-                                  }}
-                                />
-                              </Grid>
-                            </DescriptionContainer>
-                          </>
-                        )}
-                      />
-
-                      <ProposalTextContainer title="Proposal Title" value={values.title} type="title" />
-
-                      <ProposalTextContainer title="Proposal Description" value={values.description} type="description" />
-
-                      <UploadButtonContainer container direction="row">
-                        <UploadFileLabel>
-                          -OR- UPLOAD JSON FILE
-                          <FileInput
-                            type="file"
-                            accept=".json"
-                            onChange={importList}
+                    <ProposalFormListItem container direction="row">
+                      <Grid item xs={6}>
+                        <Typography variant="subtitle1" color="textSecondary">
+                          Key
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <SwitchContainer item xs={12} justify="flex-end">
+                          <Field
+                            name={`registryForm.list.${activeItem - 1}.key`}
+                            type="string"
+                            placeholder="Type a Key"
+                            component={CustomTextField}
                           />
-                        </UploadFileLabel>
-                      </UploadButtonContainer>
+                          {keyError &&
+                          touched.registryForm?.list?.[activeItem - 1]?.key ? (
+                            <ErrorText>{keyError}</ErrorText>
+                          ) : null}
+                        </SwitchContainer>
+                      </Grid>
+                    </ProposalFormListItem>
 
-                      <ListItem container direction="row">
-                        <Grid item xs={6}>
-                          <Typography variant="subtitle1" color="textSecondary">
-                            Proposal Fee
-                          </Typography>
+                    <DescriptionContainer container direction="row">
+                      <Grid item xs={12}>
+                        <Grid
+                          container
+                          direction="row"
+                          alignItems="center"
+                          justify="space-between"
+                        >
+                          <Grid item xs={12}>
+                            <Typography
+                              variant="subtitle1"
+                              color="textSecondary"
+                            >
+                              Value
+                            </Typography>
+                          </Grid>
                         </Grid>
-                        <Grid item xs={6}>
-                          <Typography
-                            align="right"
-                            variant="subtitle1"
-                            color="secondary"
-                          >
-                            {dao?.extra.frozenExtraValue || 0}{" "}
-                          </Typography>
-                        </Grid>
-                      </ListItem>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Field
+                          name={`registryForm.list.${activeItem - 1}.value`}
+                          multiline
+                          type="string"
+                          rows={6}
+                          placeholder="Type a value"
+                          component={CustomTextarea}
+                        />
+                        {valueError &&
+                        touched.registryForm?.list?.[activeItem - 1]?.value ? (
+                          <ErrorText>{valueError}</ErrorText>
+                        ) : null}
+                      </Grid>
+                    </DescriptionContainer>
+                  </>
+                )}
+              />
 
-                      <SendContainer container direction="row" justify="center">
-                        <SendButton onClick={submitForm} disabled={!dao}>
-                          SEND
-                        </SendButton>
-                      </SendContainer>
-                    </>
-                  </Form>
-                );
-              }}
-            </Formik>
-          </DialogContentText>
-        </DialogContent>
-      </Dialog>
+              <UploadButtonContainer container direction="row">
+                <UploadFileLabel>
+                  -OR- UPLOAD JSON FILE
+                  <FileInput type="file" accept=".json" onChange={importList} />
+                </UploadFileLabel>
+              </UploadButtonContainer>
+            </>
+          </Form>
+        </DialogContentText>
+      </DialogContent>
     </>
   );
 };

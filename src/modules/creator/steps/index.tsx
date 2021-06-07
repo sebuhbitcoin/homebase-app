@@ -2,35 +2,36 @@ import React, { useMemo } from "react";
 import { Route, Switch, useLocation } from "react-router";
 import { Redirect, useRouteMatch } from "react-router-dom";
 
-import { StepInfo, StepperIndex } from "modules/creator/state";
+import { StepInfo } from "modules/creator/state";
 import {
   SelectTemplate,
   Summary,
   DaoSettings,
   Governance,
   Review,
-  TokenSettings,
 } from "modules/creator/steps";
 
 import { ProtectedRoute } from "modules/creator/components/ProtectedRoute";
+import { Quorum } from "./Quorum";
 
 export const STEPS: StepInfo[] = [
-  { title: "Select template", index: StepperIndex.SELECT_TEMPLATE },
-  { title: "Configure template", index: StepperIndex.CONFIGURE_TEMPLATE },
-  { title: "Review information", index: StepperIndex.REVIEW_INFORMATION },
-  { title: "Launch organization", index: StepperIndex.LAUNCH_ORGANIZATION },
+  { title: "Select template", index: 0 },
+  { title: "Configure DAO settings", index: 1 },
+  { title: "Configure Proposal & Voting", index: 2 },
+  { title: "Adjust Quorum", index: 3 },
+  { title: "Review information", index: 4 },
 ];
 
 const urlToStepMap: Record<string, number> = {
   templates: 0,
   dao: 1,
-  token: 1,
-  voting: 1,
-  summary: 2,
-  review: 4,
+  voting: 2,
+  quorum: 3,
+  summary: 4,
+  review: 5,
 };
 
-export const CurrentStep: React.FC = () => {
+export const StepRouter: React.FC = () => {
   const match = useRouteMatch();
 
   return (
@@ -42,11 +43,11 @@ export const CurrentStep: React.FC = () => {
         <Route path={`${match.url}/dao`}>
           <DaoSettings />
         </Route>
-        <Route path={`${match.url}/token`}>
-          <TokenSettings />
-        </Route>
         <Route path={`${match.url}/voting`}>
           <Governance />
+        </Route>
+        <Route path={`${match.url}/quorum`}>
+          <Quorum />
         </Route>
         <Route path={`${match.url}/summary`}>
           <Summary />
@@ -79,4 +80,3 @@ export { Summary } from "modules/creator/steps/Summary";
 export { DaoSettings } from "modules/creator/steps/DaoSettings";
 export { Governance } from "modules/creator/steps/Governance";
 export { Review } from "modules/creator/steps/Review";
-export { TokenSettings } from "modules/creator/steps/TokenSettings";
